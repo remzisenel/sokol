@@ -20,49 +20,24 @@ module_names = {
     'saudio_':  'audio',
     'sgl_':     'gl',
     'sdtx_':    'debugtext',
+    'sfons_':   'fontstash',
     'sshape_':  'shape',
     'sglue_':   'glue',
+    'simgui_':  'imgui',
 }
 
 system_libs = {
-    'sg_': {
-        'windows': {
-            'd3d11': '#system_library,link_always "gdi32"; #system_library,link_always "dxguid"; #system_library,link_always "user32"; #system_library,link_always "shell32"; #system_library,link_always "d3d11";',
-            'gl': '#system_library,link_always "gdi32"; #system_library,link_always "dxguid"; #system_library,link_always "user32"; #system_library,link_always "shell32";',
-        },
-        'macos': {
-            'metal': '#library,link_always "../../libclang_rt.osx"; #system_library,link_always "Cocoa"; #system_library,link_always "QuartzCore"; #system_library,link_always "Metal"; #system_library,link_always "MetalKit";',
-            'gl': '#system_library,link_always "Cocoa"; #system_library,link_always "QuartzCore"; #system_library,link_always "OpenGL";',
-        },
-        'linux': {
-            'gl': '#system_library,link_always "libXcursor"; #system_library,link_always "libX11"; #system_library,link_always "libXi"; #system_library,link_always "libGL";',
-        }
-    },
     'sapp_': {
-        'windows': {
-            'd3d11': '#system_library,link_always "gdi32"; #system_library,link_always "dxguid"; #system_library,link_always "user32"; #system_library,link_always "shell32";',
-            'gl': '#system_library,link_always "gdi32"; #system_library,link_always "dxguid"; #system_library,link_always "user32"; #system_library,link_always "shell32";',
-        },
-        'macos': {
-            'metal': '#library "../../libclang_rt.osx"; #system_library,link_always "Cocoa"; #system_library,link_always "QuartzCore";',
-            'gl': '#system_library,link_always "Cocoa"; #system_library,link_always "QuartzCore";',
-        },
-        'linux': {
-            'gl': '#system_library,link_always "libXcursor"; #system_library,link_always "libX11"; #system_library,link_always "libXi"; #system_library,link_always "libGL";',
-        }
+        'windows': ['kernel32','user32','shell32','gdi32'],
+        'ios': ['Foundation','UIKit','Metal','MetalKit'],
+        'macos': ['Cocoa','QuartzCore','Metal','MetalKit'],
+        'android': ['GLESv3', 'EGL', 'log', 'android'],
     },
     'saudio_': {
-        'windows': {
-            'd3d11': '#system_library,link_always "ole32";',
-            'gl': '#system_library,link_always "ole32";',
-        },
-        'macos': {
-            'metal': '#system_library,link_always "AudioToolbox";',
-            'gl': '#system_library,link_always "AudioToolbox";',
-        },
-        'linux': {
-            'gl': '#system_library,link_always "asound"; #system_library,link_always "dl"; #system_library,link_always "pthread";',
-        }
+        'windows': ['ole32'],
+        'ios': ['AudioToolbox','AVFoundation'],
+        'macos': ['AudioToolbox'],
+        'android': ['aaudio'],
     }
 }
 
@@ -75,8 +50,10 @@ c_source_names = {
     'saudio_':  'sokol_audio.c',
     'sgl_':     'sokol_gl.c',
     'sdtx_':    'sokol_debugtext.c',
+    'sfons_':   'sokol_fontstash.c',
     'sshape_':  'sokol_shape.c',
     'sglue_':   'sokol_glue.c',
+    'simgui_':  'sokol_imgui.c',
 }
 
 ignores = [
@@ -311,90 +288,40 @@ def funcdecl_result_c(decl, prefix):
     res_c_type = decl_type[:decl_type.index('(')].strip()
     return map_type(check_override(f'{func_name}.RESULT', default=res_c_type), prefix, 'c_arg')
 
-def get_system_libs(module, platform, backend):
+def get_system_libs(module, platform):
     if module in system_libs:
         if platform in system_libs[module]:
-            if backend in system_libs[module][platform]:
-                libs = system_libs[module][platform][backend]
-                if libs != '':
-                    return f"{libs}"
-    return ''
+            return system_libs[module][platform]
+    return []
 
 def gen_c_imports(inp, c_prefix, prefix):
     module_name = inp["module"]
     clib_prefix = f'sokol_{module_name}'
     clib_import = f'{clib_prefix}_clib'
-    windows_d3d11_libs = get_system_libs(prefix, 'windows', 'd3d11')
-    windows_gl_libs = get_system_libs(prefix, 'windows', 'gl')
-    macos_metal_libs = get_system_libs(prefix, 'macos', 'metal')
-    macos_gl_libs = get_system_libs(prefix, 'macos', 'gl')
-    linux_gl_libs = get_system_libs(prefix, 'linux', 'gl')
-    l( '#module_parameters(DEBUG := false, USE_GL := false, USE_DLL := false);')
-    l( '')
+
+    windows_libs = get_system_libs(prefix, 'windows');
+    macos_libs = get_system_libs(prefix, 'macos');
+    ios_libs = get_system_libs(prefix, 'ios');
+    android_libs = get_system_libs(prefix, 'android');
+
     l( '#scope_export;')
     l( '')
     l( '#if OS == .WINDOWS {')
-    l( '    #if USE_DLL {')
-    l( '        #if USE_GL {')
-    l(f'            {windows_gl_libs}')
-    l(f'            #if  DEBUG {{ {clib_import} :: #library "{clib_prefix}_windows_x64_gl_debug";   }}')
-    l(f'            else       {{ {clib_import} :: #library "{clib_prefix}_windows_x64_gl_release"; }}')
-    l( '        } else {')
-    l(f'            {windows_d3d11_libs}')
-    l(f'            #if  DEBUG {{ {clib_import} :: #library "{clib_prefix}_windows_x64_d3d11_debug";   }}')
-    l(f'            else       {{ {clib_import} :: #library "{clib_prefix}_windows_x64_d3d11_release"; }}')
-    l( '        }')
-    l( '    } else {')
-    l( '        #if USE_GL {')
-    l(f'            {windows_gl_libs}')
-    l(f'            #if  DEBUG {{ {clib_import} :: #library,no_dll "{clib_prefix}_windows_x64_gl_debug";   }}')
-    l(f'            else       {{ {clib_import} :: #library,no_dll "{clib_prefix}_windows_x64_gl_release"; }}')
-    l( '        } else {')
-    l(f'            {windows_d3d11_libs}')
-    l(f'            #if  DEBUG {{ {clib_import} :: #library,no_dll "{clib_prefix}_windows_x64_d3d11_debug";   }}')
-    l(f'            else       {{ {clib_import} :: #library,no_dll "{clib_prefix}_windows_x64_d3d11_release"; }}')
-    l( '        }')
-    l( '    }')
-    l( '}')
-    l( 'else #if OS == .MACOS {')
-    l( '    #if USE_DLL {')
-    l(f'             #if  USE_GL && CPU == .ARM64 &&  DEBUG {{ {clib_import} :: #library "../dylib/sokol_dylib_macos_arm64_gl_debug.dylib"; }}')
-    l(f'        else #if  USE_GL && CPU == .ARM64 && !DEBUG {{ {clib_import} :: #library "../dylib/sokol_dylib_macos_arm64_gl_release.dylib"; }}')
-    l(f'        else #if  USE_GL && CPU == .X64   &&  DEBUG {{ {clib_import} :: #library "../dylib/sokol_dylib_macos_x64_gl_debug.dylib"; }}')
-    l(f'        else #if  USE_GL && CPU == .X64   && !DEBUG {{ {clib_import} :: #library "../dylib/sokol_dylib_macos_x64_gl_release.dylib"; }}')
-    l(f'        else #if !USE_GL && CPU == .ARM64 &&  DEBUG {{ {clib_import} :: #library "../dylib/sokol_dylib_macos_arm64_metal_debug.dylib"; }}')
-    l(f'        else #if !USE_GL && CPU == .ARM64 && !DEBUG {{ {clib_import} :: #library "../dylib/sokol_dylib_macos_arm64_metal_release.dylib"; }}')
-    l(f'        else #if !USE_GL && CPU == .X64   &&  DEBUG {{ {clib_import} :: #library "../dylib/sokol_dylib_macos_x64_metal_debug.dylib"; }}')
-    l(f'        else #if !USE_GL && CPU == .X64   && !DEBUG {{ {clib_import} :: #library "../dylib/sokol_dylib_macos_x64_metal_release.dylib"; }}')
-    l( '    } else {')
-    l( '        #if USE_GL {')
-    l(f'            {macos_gl_libs}')
-    l( '            #if CPU == .ARM64 {')
-    l(f'                #if  DEBUG {{ {clib_import} :: #library,no_dll "{clib_prefix}_macos_arm64_gl_debug";   }}')
-    l(f'                else       {{ {clib_import} :: #library,no_dll "{clib_prefix}_macos_arm64_gl_release"; }}')
-    l( '            } else {')
-    l(f'                #if  DEBUG {{ {clib_import} :: #library,no_dll "{clib_prefix}_macos_x64_gl_debug";   }}')
-    l(f'                else       {{ {clib_import} :: #library,no_dll "{clib_prefix}_macos_x64_gl_release"; }}')
-    l( '            }')
-    l( '        } else {')
-    l(f'            {macos_metal_libs}')
-    l( '            #if CPU == .ARM64 {')
-    l(f'                #if  DEBUG {{ {clib_import} :: #library,no_dll "{clib_prefix}_macos_arm64_metal_debug";   }}')
-    l(f'                else       {{ {clib_import} :: #library,no_dll "{clib_prefix}_macos_arm64_metal_release"; }}')
-    l( '            } else {')
-    l(f'                #if  DEBUG {{ {clib_import} :: #library,no_dll "{clib_prefix}_macos_x64_metal_debug";   }}')
-    l(f'                else       {{ {clib_import} :: #library,no_dll "{clib_prefix}_macos_x64_metal_release"; }}')
-    l( '            }')
-    l( '        }')
-    l( '    }')
-    l( '} else #if OS == .LINUX {')
-    if linux_gl_libs:
-        l(f'    {linux_gl_libs}')
-    l(f'    #if  DEBUG {{ {clib_import} :: #library,no_dll "{clib_prefix}_linux_x64_gl_debug";   }}')
-    l(f'    else       {{ {clib_import} :: #library,no_dll "{clib_prefix}_linux_x64_gl_release"; }}')
-    l( '} else #if OS == .WASM {')
-    l(f'    #if  DEBUG {{ {clib_import} :: #library,no_dll "{clib_prefix}_wasm_gl_debug";   }}')
-    l(f'    else       {{ {clib_import} :: #library,no_dll "{clib_prefix}_wasm_gl_release"; }}')
+    for lib in windows_libs:
+        l(f'    #system_library,link_always "{lib}";')
+    l(f'    {clib_import} :: #library,no_dll "bin/{clib_prefix}_windows";')
+    l( '} else #if OS == .MACOS {')
+    for lib in macos_libs:
+        l(f'    #system_library,link_always "{lib}";')
+    l(f'    {clib_import} :: #library,no_dll "bin/{clib_prefix}_macos";')
+    l( '} else #if OS == .ANDROID {')
+    for lib in android_libs:
+        l(f'    #system_library,link_always "{lib}";')
+    l(f'    {clib_import} :: #library,no_dll "bin/{clib_prefix}_android";')
+    l( '} else #if OS == .IOS {')
+    for lib in ios_libs:
+        l(f'    #system_library,link_always "{lib}";')
+    l(f'    {clib_import} :: #library,no_dll "bin/{clib_prefix}_ios";')
     l( '} else {')
     l( '    log_error("This OS is currently not supported");')
     l( '}')
@@ -451,7 +378,7 @@ def gen_enum(decl, prefix):
 def gen_imports(dep_prefixes):
     for dep_prefix in dep_prefixes:
         dep_module_name = module_names[dep_prefix]
-        l(f'#import,dir "../{dep_module_name}"(DEBUG = USE_DLL, USE_GL = USE_DLL, USE_DLL = USE_DLL);')
+        l(f'#import,dir "../{dep_module_name}";')
     l('')
 
 def gen_helpers(inp):

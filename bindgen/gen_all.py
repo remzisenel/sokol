@@ -17,8 +17,13 @@ tasks = [
 ]
 
 # Jai
+jai_tasks = [
+    *tasks,
+    # [ '../util/sokol_fontstash.h',  'sfons_',   ['sg_'] ],
+    [ '../util/sokol_imgui.h',      'simgui_',  ['sg_', 'sapp_'] ],
+]
 gen_jai.prepare()
-for task in tasks:
+for task in jai_tasks:
     [c_header_path, main_prefix, dep_prefixes] = task
     gen_jai.gen(c_header_path, main_prefix, dep_prefixes)
 
