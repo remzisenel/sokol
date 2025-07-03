@@ -21,6 +21,7 @@ jai_tasks = [
     *tasks,
     # [ '../util/sokol_fontstash.h',  'sfons_',   ['sg_'] ],
     [ '../util/sokol_imgui.h',      'simgui_',  ['sg_', 'sapp_'] ],
+    [ '../util/sokol_spine.h',      'sspine_',  ['sg_'] ],
 ]
 gen_jai.prepare()
 for task in jai_tasks:

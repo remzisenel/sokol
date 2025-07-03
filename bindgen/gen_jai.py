@@ -24,6 +24,7 @@ module_names = {
     'sshape_':  'shape',
     'sglue_':   'glue',
     'simgui_':  'imgui',
+    'sspine_':  'spine',
 }
 
 system_libs = {
@@ -54,6 +55,7 @@ c_source_names = {
     'sshape_':  'sokol_shape.c',
     'sglue_':   'sokol_glue.c',
     'simgui_':  'sokol_imgui.c',
+    'sspine_':  'sokol_spine.c',
 }
 
 ignores = [
@@ -218,6 +220,11 @@ def map_type(type, prefix, sub_type):
         sys.exit(f"Error: map_type(): unknown sub_type '{sub_type}")
     if type == "void":
         return ""
+    elif type == "sspine_color":
+        # for some reason generator ignores the statement
+        #   typedef sg_color sspine_color;
+        # so we hardcode a fix
+        return "sg_color"
     elif is_struct_type(type):
         return as_struct_or_enum_type(type, prefix)
     elif is_enum_type(type):
@@ -257,7 +264,7 @@ def funcdecl_args_c(decl, prefix):
     for param_decl in decl['params']:
         if s != '':
             s += ', '
-        param_name = param_decl['name']
+        param_name = check_override(param_decl['name'])
         param_type = check_override(f'{func_name}.{param_name}', default=param_decl['type'])
         s += f"{param_name}: {map_type(param_type, prefix, 'c_arg')}"
     return s
